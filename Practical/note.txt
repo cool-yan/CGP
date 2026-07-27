@@ -1,0 +1,25 @@
+sprite flow
+1. create a new sprite
+2. set the sprite's properties (size, color, position)
+3. set the sprite's rectangle bounds
+
+homeword week 4
+make the green box transparent when the mouse hovers over it
+
+//----------------------------------------------
+
+draw a clock
+12 scale for hour
+3 lines for hour, minute and second
+
+//-------------------------------------------------
+key binding/key remapping
+Example.
+	input.right;
+	input.left;
+	input.mouseLBDown;
+
+//-------------------------------------------
+Week 7 animation
+
+
