@@ -24,8 +24,9 @@ enum Militia {
 //---------------------------------------------------------------------------
 FrameTimer timer = FrameTimer();
 int framePerSecond = 60;
-float delta_time = 1.0 / 60.0;
+float delta_time  = 1.0 / 60.0;
 D3DXVECTOR3 gravity(0, 9.8, 0);
+float time_factor = 10;
 
 //---------------------------------------------------------------------------
 HWND g_hWnd = NULL;
@@ -87,21 +88,21 @@ float currentMilitiaFrame = 0;
 float militiaDeltaFrame;
 int militiaMovingSpeed = 3;
 int militiaFPS = 20;
-float militiaMass = 10;
+float militiaMass = 3;
 D3DXVECTOR3 militiaVelocity(0, 0, 0);
 D3DXVECTOR3 militiaAcceleration(0, 0, 0);
 bool militiaOnGround = true;
-
+float jumpingForce = 500;
 
 D3DXVECTOR3 addForce(float force, float mass) {
     return D3DXVECTOR3(0,- force / mass,0);
 }
 
 D3DXVECTOR3 acclerate(D3DXVECTOR3 v_now, D3DXVECTOR3 acclerate) {
-    return v_now += acclerate * delta_time;
+    return v_now += acclerate * time_factor * delta_time;
 }
 D3DXVECTOR3 move(D3DXVECTOR3 velocity) {
-    return velocity * delta_time;
+    return velocity * time_factor * delta_time;
 }
 
 
@@ -480,40 +481,46 @@ void UpdateMousePos() {
     mousePos.y += mouseState.lY;
 }
 
-RECT GetMilitiaRect(int num) {
-    return getNumberRect(num, 4,4, 128, 256);
-}
-
 void GetInput() {
     dInputMouseDevice->GetDeviceState(sizeof(mouseState), &mouseState);
     dInputKeyboardDevice->GetDeviceState(256, diKeys);
     UpdateMousePos();
 }
+
+RECT GetMilitiaRect(int num) {
+    return getNumberRect(num, 4,4, 128, 256);
+}
 void InitMilitia() {
+    HRESULT hr = D3DXCreateFont(d3dDevice, 25, 0, 0, 1, false,
+        DEFAULT_CHARSET, OUT_TT_ONLY_PRECIS, DEFAULT_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE, "Arial", &font);
+
+    textRect.left = 100;
+    textRect.top = 100;
+    textRect.right = 500;
+    textRect.bottom = 125;
+
     militiaDeltaFrame = (float)militiaFPS / (float)framePerSecond;
     D3DXCreateTextureFromFile(d3dDevice, "assets/militia.png", &militiaTexture);
     militiaRect = GetMilitiaRect(0);
     militiaPosition = D3DXVECTOR3(200,200,0);
 }
-
 void CleanupMilitia() {
     militiaTexture->Release();
     militiaTexture = NULL;
 }
-
 void MilitiaPhysis() {
     if (militiaPosition.y > 300) {
         militiaOnGround = true;
         militiaPosition.y = 300;
         militiaVelocity = D3DXVECTOR3(0, 0, 0);
     }
-    else {
+    else if(!militiaOnGround){
         militiaVelocity =  acclerate(militiaVelocity, gravity);
     }
-      militiaPosition += move(militiaVelocity);
+    militiaPosition += move(militiaVelocity);
 
 }
-
 void MilitiaUpdate() {
     for (int i = 0; i < timer.FramesToUpdate(); i++)
     {
@@ -539,15 +546,14 @@ void MilitiaUpdate() {
             militiaRect = GetMilitiaRect(MILITIA_RIGHT * 4 + ((int)currentMilitiaFrame % 4));
             militiaPosition.x += militiaMovingSpeed;
         }
-        else if (diKeys[DIK_SPACE] & 0x80 && militiaOnGround) {
-            militiaOnGround = false;
-            militiaAcceleration += addForce(100, militiaMass);
-            militiaVelocity = acclerate(militiaVelocity, militiaAcceleration);
-            cout << "something";
-        }
         else if(currentMilitiaFrame!=0){
             currentMilitiaFrame = 0;
             militiaRect = GetMilitiaRect(0);
+        }
+        if (diKeys[DIK_SPACE] & 0x80 && militiaOnGround) {
+            militiaOnGround = false;
+            militiaAcceleration = addForce(jumpingForce, militiaMass);
+            militiaVelocity = acclerate(militiaVelocity, militiaAcceleration);
         }
     }
 }
@@ -558,6 +564,8 @@ void MilitiaRender() {
     sprite->Begin(D3DXSPRITE_ALPHABLEND);
 
     sprite->Draw(militiaTexture, &militiaRect, NULL, &militiaPosition, D3DCOLOR_XRGB(255, 255, 255));
+    string vStr = "Velocity y: "+to_string(militiaVelocity.y);
+    font->DrawTextA(sprite, vStr.c_str(), vStr.length(), &textRect, 0, D3DCOLOR_XRGB(255, 255, 255));
 
     sprite->End();
     d3dDevice->EndScene();
@@ -626,6 +634,7 @@ void InitSprite() {
     //									D3DX_DEFAULT, D3DX_DEFAULT, D3DCOLOR_XRGB(255, 255, 255), 
     //									NULL, NULL, &texture);
 }
+
 int main(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
 
