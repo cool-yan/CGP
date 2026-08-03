@@ -26,7 +26,7 @@ FrameTimer timer = FrameTimer();
 int framePerSecond = 60;
 float delta_time  = 1.0 / 60.0;
 D3DXVECTOR3 gravity(0, 9.8, 0);
-float time_factor = 5;
+float time_factor = 10;
 
 //---------------------------------------------------------------------------
 HWND g_hWnd = NULL;
@@ -49,6 +49,7 @@ int starMovingSpeed = 3, rotationSpeed = 3;
 int starRotation = 0;
 D3DXVECTOR2 starCenter = D3DXVECTOR2(200,200);
 
+int windowWidth = 800, windowHeight = 600;
 bool windowed = true;
 LPDIRECT3DTEXTURE9 mouseTexture = NULL;
 LPDIRECT3DTEXTURE9 texture = NULL;
@@ -80,6 +81,9 @@ D3DXVECTOR3 explosionPosition(0, 0, 0);
 int currentFrame = 0;
 
 //-------------------------------------------------------------------
+RECT backgroundRect;
+LPDIRECT3DTEXTURE9 backgroundTexture = NULL;
+D3DXVECTOR3 backgroundPosition(0, 0, 0);
 
 RECT militiaRect;
 LPDIRECT3DTEXTURE9 militiaTexture = NULL;
@@ -92,7 +96,7 @@ float militiaMass = 3;
 D3DXVECTOR3 militiaVelocity(0, 0, 0);
 D3DXVECTOR3 militiaAcceleration(0, 0, 0);
 bool militiaOnGround = false;
-float jumpingForce = 2000;
+float jumpingForce = 1000;
 
 D3DXVECTOR3 addForce(float force, float mass) {
     return D3DXVECTOR3(0,- force / mass,0);
@@ -142,7 +146,34 @@ int currentAngle = 0;
 
 
 //--------------------------------------------------------------------
+// SpaceShip
 
+
+boolean player1Moving = false;
+D3DXVECTOR3 player1Direction(0, 0, 0);
+D3DXVECTOR3 player1Velocity(0, 0, 0);
+D3DXVECTOR3 player1Acceleration(0, 0, 0);
+D3DXVECTOR3 player1EngineForce(0, 0, 0);
+float player1Mass = 3;
+float player1EnginePower = 2;
+
+D3DXMATRIX player1WorldMatrix;
+LPDIRECT3DTEXTURE9 player1Texture = NULL;
+int playerSpriteWidth = 64;
+int playerSpriteHeight = 64;
+D3DXVECTOR2 player1Center(playerSpriteWidth / 2, playerSpriteHeight / 2);
+D3DXVECTOR2 player1ScaleCenter(playerSpriteWidth / 2, playerSpriteHeight / 2);
+D3DXVECTOR2 player1Scale(200, 200);
+
+RECT player1Rect;
+D3DXVECTOR3 player1Position(0, 0, 0);
+int currentplayer1Frame = 0;
+int player1MaxFrame = 2;
+int player1FPS = 20;
+
+
+
+//----------------------------------------------
 
 void GetStartPoint(D3DXVECTOR2 startVertices[], D3DXVECTOR2 center) {
     for (int i = 0; i <= 6; i++) {
@@ -286,7 +317,7 @@ void CreateMyWindow()
 
     RegisterClass(&wndClass);
     
-    g_hWnd = CreateWindowEx(0, wndClass.lpszClassName, "First window app", WS_OVERLAPPEDWINDOW, 0, 100, 800, 600, NULL, NULL, GetModuleHandleA(NULL), NULL);
+    g_hWnd = CreateWindowEx(0, wndClass.lpszClassName, "First window app", WS_OVERLAPPEDWINDOW, 0, 100, windowWidth, windowHeight, NULL, NULL, GetModuleHandleA(NULL), NULL);
     ShowWindow(g_hWnd, 1);
 
     ZeroMemory(&msg, sizeof(msg));
@@ -322,8 +353,8 @@ bool InitDirectX() {
     d3dPP.SwapEffect = D3DSWAPEFFECT_DISCARD;
     d3dPP.BackBufferFormat = D3DFMT_X8R8G8B8;
     d3dPP.BackBufferCount = 1;
-    d3dPP.BackBufferWidth = 800;
-    d3dPP.BackBufferHeight = 600;
+    d3dPP.BackBufferWidth = windowWidth;
+    d3dPP.BackBufferHeight = windowHeight;
     d3dPP.hDeviceWindow = g_hWnd;
 
     //	Create a Direct3D 9 device.
@@ -504,6 +535,11 @@ void InitMilitia() {
     D3DXCreateTextureFromFile(d3dDevice, "assets/militia.png", &militiaTexture);
     militiaRect = GetMilitiaRect(0);
     militiaPosition = D3DXVECTOR3(200,200,0);
+
+	D3DXCreateTextureFromFile(d3dDevice, "assets/spritesheet-tiles-double.png", &backgroundTexture);
+	backgroundRect = getNumberRect(182, 18,18, 4095,4095);
+	backgroundPosition = D3DXVECTOR3(200, 364, 0);
+
 }
 void CleanupMilitia() {
     militiaTexture->Release();
@@ -566,6 +602,15 @@ void MilitiaRender() {
     sprite->Begin(D3DXSPRITE_ALPHABLEND);
 
     sprite->Draw(militiaTexture, &militiaRect, NULL, &militiaPosition, D3DCOLOR_XRGB(255, 255, 255));
+    backgroundPosition.x = -100;
+	sprite->Draw(backgroundTexture, &backgroundRect, NULL, &backgroundPosition, D3DCOLOR_XRGB(255, 255, 255));
+	backgroundPosition.x += 226;
+	sprite->Draw(backgroundTexture, &backgroundRect, NULL, &backgroundPosition, D3DCOLOR_XRGB(255, 255, 255));
+    backgroundPosition.x += 226;
+	sprite->Draw(backgroundTexture, &backgroundRect, NULL, &backgroundPosition, D3DCOLOR_XRGB(255, 255, 255));
+    backgroundPosition.x += 226;
+	sprite->Draw(backgroundTexture, &backgroundRect, NULL, &backgroundPosition, D3DCOLOR_XRGB(255, 255, 255));
+
     string vStr = "Velocity y: "+to_string(militiaVelocity.y);
     font->DrawTextA(sprite, vStr.c_str(), vStr.length(), &textRect, 0, D3DCOLOR_XRGB(255, 255, 255));
 
@@ -573,6 +618,92 @@ void MilitiaRender() {
     d3dDevice->EndScene();
     d3dDevice->Present(NULL, NULL, NULL, NULL);
 }
+
+D3DXVECTOR3 addForce(float force, float mass, D3DXVECTOR3 direction, D3DXVECTOR3 currentVelocity) {
+	D3DXVECTOR3 acceleration = D3DXVECTOR3(0, 0, 0);
+	acceleration.x = (force / mass) * direction.x;
+	acceleration.y = (force / mass) * direction.y;
+	acceleration.z = (force / mass) * direction.z;
+	return currentVelocity + acceleration;
+}
+
+void InitSpaceShip() {
+	D3DXCreateTextureFromFile(d3dDevice, "assets/practical9.png", &player1Texture);
+	player1Rect = getNumberRect(0, 2, 2, playerSpriteWidth, playerSpriteHeight);
+	player1Position = D3DXVECTOR3(200, 200, 0);
+}
+
+void CleanupSpaceShip() {
+    player1Texture->Release();
+    player1Texture = NULL;
+}
+
+void SpaceShipPhysics() {
+    if (player1Position.x <= 0 && player1Velocity.x < 0) {
+        player1Velocity.x = 0;
+    }
+    if (player1Position.x >= windowWidth- playerSpriteWidth && player1Velocity.x > 0) {
+        player1Velocity.x = 0;
+    }
+    if (player1Position.y <= 0 && player1Velocity.y < 0) {
+        player1Velocity.y = 0;
+    }
+    if (player1Position.y >= windowHeight- playerSpriteHeight && player1Velocity.y > 0) {
+        player1Velocity.y = 0;
+    }
+	player1Velocity = addForce(player1EnginePower, player1Mass, player1Direction, player1Velocity);
+	player1Position += player1Velocity;
+}
+
+void SpaceShipUpdate() {
+    for(int i=0; i< timer.FramesToUpdate(); i++){
+        player1Moving = false;
+        if (diKeys[DIK_UP] & 0x80) {
+            player1Moving = true;
+            player1Direction = D3DXVECTOR3(0, -1, 0);
+            player1Position.z = 0;
+        }
+        if (diKeys[DIK_DOWN] & 0x80) {
+            player1Moving = true;
+            player1Direction = D3DXVECTOR3(0, 1, 0);
+        }
+        if (diKeys[DIK_LEFT] & 0x80) {
+            player1Moving = true;
+            player1Direction = D3DXVECTOR3(-1, 0, 0);
+        }
+        if (diKeys[DIK_RIGHT] & 0x80) {
+            player1Moving = true;
+            player1Direction = D3DXVECTOR3(1, 0, 0);
+        }
+        if (!player1Moving) {
+            player1Direction = D3DXVECTOR3(0, 0, 0);
+        }
+    }
+    
+}
+
+void SpaceShipRender() {
+	d3dDevice->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(128, 128, 128), 1.0f, 0);
+	//	Begin the scene
+	d3dDevice->BeginScene();
+	sprite->Begin(D3DXSPRITE_ALPHABLEND);
+	D3DXVECTOR2 player1pos = D3DXVECTOR2(player1Position.x, player1Position.y);
+
+    D3DXMatrixTransformation2D(&player1WorldMatrix,
+        &player1ScaleCenter,
+        0,
+        &player1Scale, 
+        &player1Center,
+        player1Position.z, 
+        &player1pos);
+	
+    sprite->SetTransform(&player1WorldMatrix);
+	sprite->Draw(player1Texture, &player1Rect, NULL,NULL, D3DCOLOR_XRGB(255, 255, 255));
+	sprite->End();
+	d3dDevice->EndScene();
+	d3dDevice->Present(NULL, NULL, NULL, NULL);
+}
+
 
 void CleanupDInput() {
     dInputKeyboardDevice->Unacquire();
@@ -652,13 +783,17 @@ int main(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nSho
    
     InitSprite();
     InitText();
-    InitMilitia();
+    //InitMilitia();
+    InitSpaceShip();
     while (WindowIsRunning()) {
         GetInput();
 
-        MilitiaPhysis();
-        MilitiaUpdate();
-        MilitiaRender();
+        //MilitiaPhysis();
+        //MilitiaUpdate();
+        //MilitiaRender();
+        SpaceShipPhysics();
+        SpaceShipUpdate();
+        SpaceShipRender();
 
 
 
@@ -684,7 +819,8 @@ int main(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nSho
 	bg3texture = NULL;
     line->Release();
 
-    CleanupMilitia();
+    CleanupSpaceShip();
+    //CleanupMilitia();
     CleanupDInput();
     CleanupDirectX();
 	CleanupWindow();
