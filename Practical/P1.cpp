@@ -91,7 +91,7 @@ int militiaFPS = 20;
 float militiaMass = 3;
 D3DXVECTOR3 militiaVelocity(0, 0, 0);
 D3DXVECTOR3 militiaAcceleration(0, 0, 0);
-bool militiaOnGround = true;
+bool militiaOnGround = false;
 float jumpingForce = 2000;
 
 D3DXVECTOR3 addForce(float force, float mass) {
