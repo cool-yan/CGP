@@ -148,7 +148,7 @@ int currentAngle = 0;
 
 //--------------------------------------------------------------------
 // SpaceShip
-
+float deaccelerationInSpace = 10.0f;
 
 boolean player1Moving = false;
 D3DXVECTOR3 player1Direction(0, 0, 0);
@@ -170,7 +170,7 @@ D3DXVECTOR2 player1Scale(1, 1);
 
 RECT player1Rect;
 D3DXVECTOR3 player1Position(0, 0, 0);
-int currentplayer1Frame = 0;
+float currentplayer1Frame = 0;
 int player1MaxFrame = 2;
 int player1FPS = 20;
 
@@ -626,7 +626,6 @@ D3DXVECTOR3 addForce(float force, float mass, D3DXVECTOR3 direction, D3DXVECTOR3
 	D3DXVECTOR3 acceleration = D3DXVECTOR3(0, 0, 0);
 	acceleration.x = (force / mass) * direction.x;
 	acceleration.y = (force / mass) * direction.y;
-	acceleration.z = (force / mass) * direction.z;
 	return currentVelocity + acceleration;
 }
 
@@ -645,13 +644,13 @@ void SpaceShipPhysics() {
     if (player1Position.x <= 0 && player1Velocity.x < 0) {
         player1Velocity.x = 0;
     }
-    if (player1Position.x >= windowWidth- playerSpriteWidth && player1Velocity.x > 0) {
+    if (player1Position.x >= windowWidth- playerSpriteWidth/2 && player1Velocity.x > 0) {
         player1Velocity.x = 0;
     }
     if (player1Position.y <= 0 && player1Velocity.y < 0) {
         player1Velocity.y = 0;
     }
-    if (player1Position.y >= windowHeight- playerSpriteHeight && player1Velocity.y > 0) {
+    if (player1Position.y >= windowHeight- playerSpriteHeight/2 && player1Velocity.y > 0) {
         player1Velocity.y = 0;
     }
 	player1Velocity = addForce(player1EnginePower, player1Mass, player1Direction, player1Velocity);
@@ -661,10 +660,31 @@ void SpaceShipPhysics() {
 void SpaceShipUpdate() {
     for(int i=0; i< timer.FramesToUpdate(); i++){
 
+		if (D3DXVec3LengthSq(&player1Velocity) > 0.0001f) {
+            currentplayer1Frame += (float)player1FPS / (float)framePerSecond;
+            player1Rect = getNumberRect(((int)currentplayer1Frame % player1MaxFrame) * 2, 2, 2, playerSpriteWidth, playerSpriteHeight);
+        }
+        else if(currentplayer1Frame > 0) {
+			currentplayer1Frame = 0;            
+            player1Rect = getNumberRect(((int)currentplayer1Frame % player1MaxFrame) * 2, 2, 2, playerSpriteWidth, playerSpriteHeight);
+
+        }
         if (diKeys[DIK_UP] & 0x80) {
-			D3DXVECTOR3 movingVelocity = D3DXVECTOR3(cos(player1Position.z*180/D3DX_PI - 90) * player1EnginePower / player1Mass, sin(player1Position.z * 180 / D3DX_PI -90) * player1EnginePower /player1Mass, 0);
+			D3DXVECTOR3 movingVelocity = D3DXVECTOR3(
+                cos(player1Position.z/player1RotationFactor - D3DX_PI/2) * player1EnginePower / player1Mass,
+                sin(player1Position.z/player1RotationFactor - D3DX_PI/2) * player1EnginePower /player1Mass, 
+                0);
 			player1Velocity += movingVelocity;
         }
+
+        else if(D3DXVec3LengthSq(&player1Velocity) > 0.0001f) {
+            D3DXVECTOR3 movingVelocity = D3DXVECTOR3(
+                player1Velocity.x / deaccelerationInSpace,
+                player1Velocity.y / deaccelerationInSpace,
+                0);
+            player1Velocity -= movingVelocity;
+        }
+
         if (diKeys[DIK_LEFT] & 0x80) {
             cout << "Left key pressed" << player1Position.z << endl;
 			player1Position.z -= player1RotationSpeed;
@@ -672,6 +692,10 @@ void SpaceShipUpdate() {
         if (diKeys[DIK_RIGHT] & 0x80) {
             player1Position.z += player1RotationSpeed;
         }
+		if (diKeys[DIK_SPACE] & 0x80) {
+			player1Position = D3DXVECTOR3(windowWidth/2, windowHeight/2, 0);
+			player1Velocity = D3DXVECTOR3(0, 0, 0);
+		}
     }
     
 }
@@ -682,7 +706,7 @@ void SpaceShipRender() {
 	d3dDevice->BeginScene();
 	sprite->Begin(D3DXSPRITE_ALPHABLEND);
 
-    string vStr = "Rotation: " + to_string(player1Position.z);
+    string vStr = "Rotation: " + to_string(player1Position.z * 180 / D3DX_PI);
     font->DrawTextA(sprite, vStr.c_str(), vStr.length(), &textRect, 0, D3DCOLOR_XRGB(255, 255, 255));
 
 	D3DXVECTOR2 player1pos = D3DXVECTOR2(player1Position.x, player1Position.y);
@@ -697,6 +721,8 @@ void SpaceShipRender() {
 	
     sprite->SetTransform(&player1WorldMatrix);
 	sprite->Draw(player1Texture, &player1Rect, NULL,NULL, D3DCOLOR_XRGB(255, 255, 255));
+	D3DXMatrixIdentity(&player1WorldMatrix);
+	sprite->SetTransform(&player1WorldMatrix);
 	sprite->End();
 	d3dDevice->EndScene();
 	d3dDevice->Present(NULL, NULL, NULL, NULL);
