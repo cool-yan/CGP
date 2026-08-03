@@ -26,7 +26,7 @@ FrameTimer timer = FrameTimer();
 int framePerSecond = 60;
 float delta_time  = 1.0 / 60.0;
 D3DXVECTOR3 gravity(0, 9.8, 0);
-float time_factor = 10;
+float time_factor = 5;
 
 //---------------------------------------------------------------------------
 HWND g_hWnd = NULL;
@@ -86,13 +86,13 @@ LPDIRECT3DTEXTURE9 militiaTexture = NULL;
 D3DXVECTOR3 militiaPosition(0, 0, 0);
 float currentMilitiaFrame = 0;
 float militiaDeltaFrame;
-int militiaMovingSpeed = 3;
+int militiaDefaultMovingSpeed = 10;
 int militiaFPS = 20;
 float militiaMass = 3;
 D3DXVECTOR3 militiaVelocity(0, 0, 0);
 D3DXVECTOR3 militiaAcceleration(0, 0, 0);
 bool militiaOnGround = true;
-float jumpingForce = 500;
+float jumpingForce = 2000;
 
 D3DXVECTOR3 addForce(float force, float mass) {
     return D3DXVECTOR3(0,- force / mass,0);
@@ -524,27 +524,29 @@ void MilitiaPhysis() {
 void MilitiaUpdate() {
     for (int i = 0; i < timer.FramesToUpdate(); i++)
     {
-        militiaMovingSpeed = diKeys[DIK_LSHIFT] & 0x80 ? 10 : 3;
+        float militiaMovingSpeed = diKeys[DIK_LSHIFT] & 0x80 ? militiaDefaultMovingSpeed*3 : militiaDefaultMovingSpeed;
+		if (militiaOnGround)
+			militiaVelocity = D3DXVECTOR3(0, 0, 0);
         if (diKeys[DIK_UP] & 0x80)
         {
             currentMilitiaFrame += militiaDeltaFrame;
             militiaRect = GetMilitiaRect(MILITIA_UP * 4 + ((int)currentMilitiaFrame % 4));
-            militiaPosition.y -= militiaMovingSpeed;
+			militiaVelocity.y = -militiaMovingSpeed;
         }
         else if (diKeys[DIK_DOWN] & 0x80) {
             currentMilitiaFrame += militiaDeltaFrame;
             militiaRect = GetMilitiaRect(MILITIA_DOWN * 4 + ((int)currentMilitiaFrame % 4));
-            militiaPosition.y += militiaMovingSpeed;
+            militiaVelocity.y = militiaMovingSpeed;
         }
         else if (diKeys[DIK_LEFT] & 0x80) {
             currentMilitiaFrame += militiaDeltaFrame;
             militiaRect = GetMilitiaRect(MILITIA_LEFT * 4 + ((int)currentMilitiaFrame % 4));
-            militiaPosition.x -= militiaMovingSpeed;
+			militiaVelocity.x = -militiaMovingSpeed;
         }
         else if (diKeys[DIK_RIGHT] & 0x80) {
             currentMilitiaFrame += militiaDeltaFrame;
             militiaRect = GetMilitiaRect(MILITIA_RIGHT * 4 + ((int)currentMilitiaFrame % 4));
-            militiaPosition.x += militiaMovingSpeed;
+            militiaVelocity.x = militiaMovingSpeed;
         }
         else if(currentMilitiaFrame!=0){
             currentMilitiaFrame = 0;
