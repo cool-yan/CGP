@@ -105,6 +105,7 @@ D3DXVECTOR3 addForce(float force, float mass) {
 D3DXVECTOR3 acclerate(D3DXVECTOR3 v_now, D3DXVECTOR3 acclerate) {
     return v_now += acclerate * time_factor * delta_time;
 }
+
 D3DXVECTOR3 move(D3DXVECTOR3 velocity) {
     return velocity * time_factor * delta_time;
 }
@@ -156,14 +157,16 @@ D3DXVECTOR3 player1Acceleration(0, 0, 0);
 D3DXVECTOR3 player1EngineForce(0, 0, 0);
 float player1Mass = 3;
 float player1EnginePower = 2;
+int player1RotationSpeed = 1;
+int player1RotationFactor = 10;
 
 D3DXMATRIX player1WorldMatrix;
 LPDIRECT3DTEXTURE9 player1Texture = NULL;
 int playerSpriteWidth = 64;
 int playerSpriteHeight = 64;
-D3DXVECTOR2 player1Center(playerSpriteWidth / 2, playerSpriteHeight / 2);
-D3DXVECTOR2 player1ScaleCenter(playerSpriteWidth / 2, playerSpriteHeight / 2);
-D3DXVECTOR2 player1Scale(200, 200);
+D3DXVECTOR2 player1Center(playerSpriteWidth / 4, playerSpriteHeight / 4);
+D3DXVECTOR2 player1ScaleCenter(playerSpriteWidth / 4, playerSpriteHeight / 4);
+D3DXVECTOR2 player1Scale(1, 1);
 
 RECT player1Rect;
 D3DXVECTOR3 player1Position(0, 0, 0);
@@ -657,26 +660,17 @@ void SpaceShipPhysics() {
 
 void SpaceShipUpdate() {
     for(int i=0; i< timer.FramesToUpdate(); i++){
-        player1Moving = false;
+
         if (diKeys[DIK_UP] & 0x80) {
-            player1Moving = true;
-            player1Direction = D3DXVECTOR3(0, -1, 0);
-            player1Position.z = 0;
-        }
-        if (diKeys[DIK_DOWN] & 0x80) {
-            player1Moving = true;
-            player1Direction = D3DXVECTOR3(0, 1, 0);
+			D3DXVECTOR3 movingVelocity = D3DXVECTOR3(cos(player1Position.z*180/D3DX_PI - 90) * player1EnginePower / player1Mass, sin(player1Position.z * 180 / D3DX_PI -90) * player1EnginePower /player1Mass, 0);
+			player1Velocity += movingVelocity;
         }
         if (diKeys[DIK_LEFT] & 0x80) {
-            player1Moving = true;
-            player1Direction = D3DXVECTOR3(-1, 0, 0);
+            cout << "Left key pressed" << player1Position.z << endl;
+			player1Position.z -= player1RotationSpeed;
         }
         if (diKeys[DIK_RIGHT] & 0x80) {
-            player1Moving = true;
-            player1Direction = D3DXVECTOR3(1, 0, 0);
-        }
-        if (!player1Moving) {
-            player1Direction = D3DXVECTOR3(0, 0, 0);
+            player1Position.z += player1RotationSpeed;
         }
     }
     
@@ -687,6 +681,10 @@ void SpaceShipRender() {
 	//	Begin the scene
 	d3dDevice->BeginScene();
 	sprite->Begin(D3DXSPRITE_ALPHABLEND);
+
+    string vStr = "Rotation: " + to_string(player1Position.z);
+    font->DrawTextA(sprite, vStr.c_str(), vStr.length(), &textRect, 0, D3DCOLOR_XRGB(255, 255, 255));
+
 	D3DXVECTOR2 player1pos = D3DXVECTOR2(player1Position.x, player1Position.y);
 
     D3DXMatrixTransformation2D(&player1WorldMatrix,
@@ -694,7 +692,7 @@ void SpaceShipRender() {
         0,
         &player1Scale, 
         &player1Center,
-        player1Position.z, 
+        player1Position.z/ player1RotationFactor,
         &player1pos);
 	
     sprite->SetTransform(&player1WorldMatrix);
