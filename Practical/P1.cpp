@@ -154,7 +154,7 @@ D3DXVECTOR3 player1Direction(0, 0, 0);
 D3DXVECTOR3 player1Velocity(0, 0, 0);
 D3DXVECTOR3 player1Acceleration(0, 0, 0);
 D3DXVECTOR3 player1EngineForce(0, 0, 0);
-float player1Mass = 3;
+float player1Mass = 5;
 float player1EnginePower = 2;
 int player1RotationSpeed = 1;
 int player1RotationFactor = 10;
@@ -182,7 +182,6 @@ private:
     int rotationFactor;
 	int maxFrame;
 	int fps;
-	float mass;
 	float enginePower;
     LPDIRECT3DTEXTURE9 texture = NULL;
 	RECT rect;
@@ -191,8 +190,10 @@ private:
     D3DXVECTOR2 center;
     D3DXVECTOR2 scaleCenter;
     D3DXVECTOR2 scale;
+	float maxVelocity = 10.0f;
 
 public:
+	float mass;
     D3DXVECTOR2 velocity;
 	SpaceShip(D3DXVECTOR2 pos, 
         D3DXVECTOR2 vel, 
@@ -236,8 +237,12 @@ public:
     void Update() {
         if (D3DXVec2LengthSq(&velocity) > 0.01f) {
 			rotationAngle = atan2(velocity.y, velocity.x) + D3DXToRadian(90);
-			velocity -= velocity / deaccelerationInSpace;
+			velocity -= velocity / deaccelerationInSpace / 4;
         }
+        if(velocity.x > maxVelocity)
+			velocity.x = maxVelocity;
+		if (velocity.y > maxVelocity)
+			velocity.y = maxVelocity;
 		position += velocity;
         if (position.x <= 0 && velocity.x < 0
             ||
@@ -720,11 +725,16 @@ D3DXVECTOR3 CalculateCollisionVelocity(D3DXVECTOR2 pos1,
         D3DXVECTOR2 n;
         D3DXVec2Normalize(&n, &distance);
         float dotProduct = D3DXVec2Dot(&relativeVelocity, &n);
-        v1 += dotProduct * n;
-        p2.velocity -= dotProduct * n *4;
+
+		float j = -2 * dotProduct / (1 / player1Mass + 1 / p2.mass);
+
+        v1 -= j/ player1Mass * n;
+        p2.velocity += j/ p2.mass * n;
         velocity1.x = v1.x;
         velocity1.y = v1.y;
-		player1Position.z = atan2(velocity1.y, velocity1.x) + D3DXToRadian(90);
+		if (velocity1.x > 0 && velocity1.y > 0) {
+			player1Position.z = (atan2(velocity1.y, velocity1.x) + D3DXToRadian(90)) * player1RotationFactor;
+		}
     }
     else if (D3DXVec2LengthSq(&distance) > pow(radius1 + radius1, 2) &&collided) {
 		collided = false;
@@ -736,7 +746,7 @@ void InitSpaceShip() {
 	D3DXCreateTextureFromFile(d3dDevice, "assets/practical9.png", &player1Texture);
 	player1Rect = getNumberRect(0, 2, 2, playerSpriteWidth, playerSpriteHeight);
 	player1Position = D3DXVECTOR3(200, 200, 0);
-	player2 = new SpaceShip(D3DXVECTOR2(400, 400), D3DXVECTOR2(0, 0), 1, 2, 20, 3, 2, player1Texture);
+	player2 = new SpaceShip(D3DXVECTOR2(400, 400), D3DXVECTOR2(0, 0), 1, 2, 20, player1Mass, 2, player1Texture);
 }
 
 void CleanupSpaceShip() {
