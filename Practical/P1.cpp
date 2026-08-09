@@ -150,7 +150,6 @@ int currentAngle = 0;
 // SpaceShip
 float deaccelerationInSpace = 10.0f;
 
-boolean player1Moving = false;
 D3DXVECTOR3 player1Direction(0, 0, 0);
 D3DXVECTOR3 player1Velocity(0, 0, 0);
 D3DXVECTOR3 player1Acceleration(0, 0, 0);
@@ -174,7 +173,86 @@ float currentplayer1Frame = 0;
 int player1MaxFrame = 2;
 int player1FPS = 20;
 
+class SpaceShip {
+private:
+	D3DXVECTOR2 position;
+	D3DXMATRIX worldMatrix;
+	float rotationAngle;
+	int rotationSpeed;
+    int rotationFactor;
+	int maxFrame;
+	int fps;
+	float mass;
+	float enginePower;
+    LPDIRECT3DTEXTURE9 texture = NULL;
+	RECT rect;
+    int spriteWidth = 64;
+    int spriteHeight = 64;
+    D3DXVECTOR2 center;
+    D3DXVECTOR2 scaleCenter;
+    D3DXVECTOR2 scale;
 
+public:
+    D3DXVECTOR2 velocity;
+	SpaceShip(D3DXVECTOR2 pos, 
+        D3DXVECTOR2 vel, 
+        int rotSpeed, 
+        int maxF, 
+        int fpsVal, 
+        float m, 
+        float engPower, 
+        LPDIRECT3DTEXTURE9 tex) {
+		position = pos;
+		velocity = vel;
+		rotationSpeed = rotSpeed;
+		maxFrame = maxF;
+		fps = fpsVal;
+		mass = m;
+		enginePower = engPower;
+		texture = tex;
+		center = D3DXVECTOR2(spriteWidth / 4, spriteHeight / 4);
+		scaleCenter = D3DXVECTOR2(spriteWidth / 4, spriteHeight / 4);
+		scale = D3DXVECTOR2(1, 1);
+        rect.left = 32;
+        rect.right = 64;
+        rect.top = 0;
+        rect.bottom = 32;
+	}
+
+    D3DXVECTOR2 GetCenter() {
+        return position;
+    }
+
+	void Render(LPD3DXSPRITE sprite) {
+		D3DXMatrixTransformation2D(&worldMatrix, &scaleCenter, 0, &scale, &center, rotationAngle, &position);
+		
+		sprite->SetTransform(&worldMatrix);
+        sprite->Draw(texture, &rect, NULL, NULL, D3DCOLOR_XRGB(255, 255, 255));
+		D3DXMatrixIdentity(&worldMatrix);
+		sprite->SetTransform(&worldMatrix);
+
+	}
+
+    void Update() {
+        if (D3DXVec2LengthSq(&velocity) > 0.01f) {
+			rotationAngle = atan2(velocity.y, velocity.x) + D3DXToRadian(90);
+			velocity -= velocity / deaccelerationInSpace;
+        }
+		position += velocity;
+        if (position.x <= 0 && velocity.x < 0
+            ||
+            position.x >= windowWidth - spriteWidth / 2 && velocity.x > 0) {
+            velocity.x *=-1;
+        }
+        if (position.y <= 0 && velocity.y < 0
+            ||
+            position.y >= windowHeight - spriteHeight / 2 && velocity.y > 0) {
+            velocity.y *=-1;
+        }
+    }
+};
+
+SpaceShip *player2 = NULL;
 
 //----------------------------------------------
 
@@ -629,10 +707,36 @@ D3DXVECTOR3 addForce(float force, float mass, D3DXVECTOR3 direction, D3DXVECTOR3
 	return currentVelocity + acceleration;
 }
 
+bool collided = false;
+D3DXVECTOR3 CalculateCollisionVelocity(D3DXVECTOR2 pos1,
+    float radius1,
+    D3DXVECTOR3 velocity1,
+    SpaceShip& p2) {
+    D3DXVECTOR2 distance = pos1 - p2.GetCenter();
+    if (D3DXVec2LengthSq(&distance) <= pow(radius1 + radius1, 2) && !collided) {
+        collided = true;
+        D3DXVECTOR2 v1 = D3DXVECTOR2(velocity1.x, velocity1.y);
+        D3DXVECTOR2 relativeVelocity = p2.velocity - v1;
+        D3DXVECTOR2 n;
+        D3DXVec2Normalize(&n, &distance);
+        float dotProduct = D3DXVec2Dot(&relativeVelocity, &n);
+        v1 += dotProduct * n;
+        p2.velocity -= dotProduct * n *4;
+        velocity1.x = v1.x;
+        velocity1.y = v1.y;
+		player1Position.z = atan2(velocity1.y, velocity1.x) + D3DXToRadian(90);
+    }
+    else if (D3DXVec2LengthSq(&distance) > pow(radius1 + radius1, 2) &&collided) {
+		collided = false;
+    }
+    return velocity1;
+}
+
 void InitSpaceShip() {
 	D3DXCreateTextureFromFile(d3dDevice, "assets/practical9.png", &player1Texture);
 	player1Rect = getNumberRect(0, 2, 2, playerSpriteWidth, playerSpriteHeight);
 	player1Position = D3DXVECTOR3(200, 200, 0);
+	player2 = new SpaceShip(D3DXVECTOR2(400, 400), D3DXVECTOR2(0, 0), 1, 2, 20, 3, 2, player1Texture);
 }
 
 void CleanupSpaceShip() {
@@ -696,6 +800,13 @@ void SpaceShipUpdate() {
 			player1Position = D3DXVECTOR3(windowWidth/2, windowHeight/2, 0);
 			player1Velocity = D3DXVECTOR3(0, 0, 0);
 		}
+        player1Velocity = CalculateCollisionVelocity(
+            D3DXVECTOR2(player1Position.x, player1Position.y),
+            playerSpriteWidth / 4, 
+            player1Velocity,
+            *player2);
+		player2->Update();
+
     }
     
 }
@@ -723,6 +834,9 @@ void SpaceShipRender() {
 	sprite->Draw(player1Texture, &player1Rect, NULL,NULL, D3DCOLOR_XRGB(255, 255, 255));
 	D3DXMatrixIdentity(&player1WorldMatrix);
 	sprite->SetTransform(&player1WorldMatrix);
+
+	player2->Render(sprite);
+
 	sprite->End();
 	d3dDevice->EndScene();
 	d3dDevice->Present(NULL, NULL, NULL, NULL);
