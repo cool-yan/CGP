@@ -121,6 +121,19 @@ int speed = 5;
 
 //--------------------------------------------------------------------
 
+
+RECT getNumberRect(int num, int columnCount, int rowCount, int width, int height) {
+    RECT numberRect;
+
+    numberRect.left = (num % columnCount) * (width / columnCount);
+    numberRect.top = (num / rowCount) * (height / rowCount);
+
+    numberRect.right = numberRect.left + (width / columnCount);
+    numberRect.bottom = numberRect.top + (height / rowCount);
+
+    return numberRect;
+}
+
 LPD3DXFONT font = NULL;
 RECT textRect;
 
@@ -154,7 +167,7 @@ D3DXVECTOR3 player1Direction(0, 0, 0);
 D3DXVECTOR3 player1Velocity(0, 0, 0);
 D3DXVECTOR3 player1Acceleration(0, 0, 0);
 D3DXVECTOR3 player1EngineForce(0, 0, 0);
-float player1Mass = 5;
+float player1Mass = 3;
 float player1EnginePower = 2;
 int player1RotationSpeed = 1;
 int player1RotationFactor = 10;
@@ -173,6 +186,23 @@ float currentplayer1Frame = 0;
 int player1MaxFrame = 2;
 int player1FPS = 20;
 
+class Bullet {
+public:
+	D3DXVECTOR2 position;
+	D3DXVECTOR2 velocity;
+	D3DXVECTOR3 explosionPosition;
+	float rotationAngle;
+    int currentFrame;
+	bool active;
+	bool explode;
+	void Explode() {
+		explode = true;
+		active = false;
+		explosionPosition = D3DXVECTOR3(position.x-51, position.y-51, 0);
+		currentFrame = 0;
+	}
+};
+
 class SpaceShip {
 private:
 	D3DXVECTOR2 position;
@@ -182,9 +212,18 @@ private:
     int rotationFactor;
 	int maxFrame;
 	int fps;
+	int bulletActiveCount = 0;
 	float enginePower;
     LPDIRECT3DTEXTURE9 texture = NULL;
-	RECT rect;
+
+    LPDIRECT3DTEXTURE9 bulletTexture = NULL;
+	RECT bulletRect;
+    D3DXVECTOR2 bCenter;
+    D3DXVECTOR2 bScaleCenter;
+    D3DXVECTOR2 bScale;
+	Bullet bullet[50];
+
+    RECT rect;
     int spriteWidth = 64;
     int spriteHeight = 64;
     D3DXVECTOR2 center;
@@ -202,7 +241,8 @@ public:
         int fpsVal, 
         float m, 
         float engPower, 
-        LPDIRECT3DTEXTURE9 tex) {
+        LPDIRECT3DTEXTURE9 tex,
+        LPDIRECT3DTEXTURE9 btex) {
 		position = pos;
 		velocity = vel;
 		rotationSpeed = rotSpeed;
@@ -211,6 +251,7 @@ public:
 		mass = m;
 		enginePower = engPower;
 		texture = tex;
+		bulletTexture = btex;
 		center = D3DXVECTOR2(spriteWidth / 4, spriteHeight / 4);
 		scaleCenter = D3DXVECTOR2(spriteWidth / 4, spriteHeight / 4);
 		scale = D3DXVECTOR2(1, 1);
@@ -218,6 +259,21 @@ public:
         rect.right = 64;
         rect.top = 0;
         rect.bottom = 32;
+
+        
+
+		bScale = D3DXVECTOR2(1, 1);
+		bScaleCenter = D3DXVECTOR2(16, 16);
+		bCenter = D3DXVECTOR2(16, 16);
+   
+		bulletRect.left = 0;
+		bulletRect.top = 0;
+		bulletRect.bottom = 16;
+		bulletRect.right = 16;
+
+
+        HRESULT hr = D3DXCreateTextureFromFile(d3dDevice, "assets/explosion-tran.png", &explosionTexture);
+        explosionRect = getNumberRect(0, 5, 5, 500, 500);
 	}
 
     D3DXVECTOR2 GetCenter() {
@@ -226,15 +282,79 @@ public:
 
 	void Render(LPD3DXSPRITE sprite) {
 		D3DXMatrixTransformation2D(&worldMatrix, &scaleCenter, 0, &scale, &center, rotationAngle, &position);
-		
 		sprite->SetTransform(&worldMatrix);
         sprite->Draw(texture, &rect, NULL, NULL, D3DCOLOR_XRGB(255, 255, 255));
 		D3DXMatrixIdentity(&worldMatrix);
 		sprite->SetTransform(&worldMatrix);
 
+		for (Bullet& b : bullet) {
+                if (b.active) {
+                        D3DXMatrixTransformation2D(&worldMatrix, &bScaleCenter, 0, &bScale, &bCenter, b.rotationAngle, &(b.position));
+                        sprite->SetTransform(&worldMatrix);
+                        sprite->Draw(bulletTexture, &bulletRect, NULL, NULL, D3DCOLOR_XRGB(255, 255, 255));
+                        D3DXMatrixIdentity(&worldMatrix);
+                        sprite->SetTransform(&worldMatrix);
+                    }
+                if (b.explode) {
+                    if (b.currentFrame == 23) {
+                        b.explode = false;
+                        b.currentFrame = 0;
+                    }
+                    explosionRect = getNumberRect(b.currentFrame++, 5, 5, 500, 500);
+                    sprite->Draw(explosionTexture, &explosionRect, NULL, &b.explosionPosition, D3DCOLOR_XRGB(255, 255, 255));
+                }
+            }
+
 	}
 
+	void Shoot(D3DXVECTOR2 vec2targ) {
+		bulletActiveCount++;
+        if(bulletActiveCount != 50)
+		    for (Bullet& b : bullet) {
+			    if (!b.active && !b.explode) {
+				    D3DXVec2Normalize(&vec2targ, &vec2targ);
+				    b.position = position;
+				    b.velocity = vec2targ * 10.0f;
+				    b.rotationAngle = atan2(b.velocity.y, b.velocity.x) + D3DXToRadian(90);
+				    b.active = true;
+				    break;
+			    }
+		    }
+	}
+
+
     void Update() {
+
+        for(Bullet &b:bullet){
+            if (b.active) {
+                b.position += b.velocity;
+                if (b.position.x < 0 || b.position.x > windowWidth || b.position.y < 0 || b.position.y > windowHeight) {
+                    b.active = false;
+					bulletActiveCount--;
+                }
+                D3DXVECTOR2 vec2targ = (D3DXVECTOR2(player1Position.x, player1Position.y) - b.position);
+                if (D3DXVec2LengthSq(&vec2targ) < pow(16 + 8, 2)) {
+                    b.active = false;
+                    bulletActiveCount--;
+                    player1Velocity.x += b.velocity.x / player1Mass / 3;
+                    player1Velocity.y += b.velocity.y / player1Mass / 3;
+                    b.Explode();
+                }
+            }
+        }
+
+
+		float movingSpeed = 0;
+        D3DXVECTOR2 vec2targ = (D3DXVECTOR2(player1Position.x, player1Position.y) - position);
+		if (D3DXVec2LengthSq(&vec2targ) > (40000)) {
+			D3DXVec2Normalize(&velocity, &vec2targ);
+			movingSpeed = 1.0f;
+		    velocity *= enginePower * movingSpeed;
+		}
+        if(diKeys[DIK_SPACE] & 0x80) {
+            Shoot(vec2targ);
+        }
+
         if (D3DXVec2LengthSq(&velocity) > 0.01f) {
 			rotationAngle = atan2(velocity.y, velocity.x) + D3DXToRadian(90);
 			velocity -= velocity / deaccelerationInSpace / 4;
@@ -278,17 +398,6 @@ D3DXVECTOR2 getVerticOfACircle(int radius, int degree, int centerX, int centerY)
     return D3DXVECTOR2(x, y);
 }
 
-RECT getNumberRect(int num, int columnCount, int rowCount, int width, int height) {
-    RECT numberRect;
-
-    numberRect.left = (num % columnCount) * (width / columnCount);
-    numberRect.top = (num / rowCount) * (height / rowCount);
-
-    numberRect.right = numberRect.left + (width / columnCount);
-    numberRect.bottom = numberRect.top + (height / rowCount);
-
-    return numberRect;
-}
 
 string GetMousePos() {
     return "Mouse postion- x: "+to_string(mousePos.x) + " y: "+to_string(mousePos.y);
@@ -718,6 +827,7 @@ D3DXVECTOR3 CalculateCollisionVelocity(D3DXVECTOR2 pos1,
     D3DXVECTOR3 velocity1,
     SpaceShip& p2) {
     D3DXVECTOR2 distance = pos1 - p2.GetCenter();
+
     if (D3DXVec2LengthSq(&distance) <= pow(radius1 + radius1, 2) && !collided) {
         collided = true;
         D3DXVECTOR2 v1 = D3DXVECTOR2(velocity1.x, velocity1.y);
@@ -732,9 +842,6 @@ D3DXVECTOR3 CalculateCollisionVelocity(D3DXVECTOR2 pos1,
         p2.velocity += j/ p2.mass * n;
         velocity1.x = v1.x;
         velocity1.y = v1.y;
-		if (velocity1.x > 0 && velocity1.y > 0) {
-			player1Position.z = (atan2(velocity1.y, velocity1.x) + D3DXToRadian(90)) * player1RotationFactor;
-		}
     }
     else if (D3DXVec2LengthSq(&distance) > pow(radius1 + radius1, 2) &&collided) {
 		collided = false;
@@ -743,10 +850,12 @@ D3DXVECTOR3 CalculateCollisionVelocity(D3DXVECTOR2 pos1,
 }
 
 void InitSpaceShip() {
+	LPDIRECT3DTEXTURE9 bulletTexture = NULL;
 	D3DXCreateTextureFromFile(d3dDevice, "assets/practical9.png", &player1Texture);
+	D3DXCreateTextureFromFile(d3dDevice, "assets/bullet.png", &bulletTexture);
 	player1Rect = getNumberRect(0, 2, 2, playerSpriteWidth, playerSpriteHeight);
 	player1Position = D3DXVECTOR3(200, 200, 0);
-	player2 = new SpaceShip(D3DXVECTOR2(400, 400), D3DXVECTOR2(0, 0), 1, 2, 20, player1Mass, 2, player1Texture);
+	player2 = new SpaceShip(D3DXVECTOR2(400, 400), D3DXVECTOR2(0, 0), 1, 2, 20, player1Mass, 2, player1Texture, bulletTexture);
 }
 
 void CleanupSpaceShip() {
@@ -773,7 +882,7 @@ void SpaceShipPhysics() {
 
 void SpaceShipUpdate() {
     for(int i=0; i< timer.FramesToUpdate(); i++){
-
+		float turboSpeed = diKeys[DIK_LSHIFT] & 0x80 ? player1EnginePower * 2 : player1EnginePower;
 		if (D3DXVec3LengthSq(&player1Velocity) > 0.0001f) {
             currentplayer1Frame += (float)player1FPS / (float)framePerSecond;
             player1Rect = getNumberRect(((int)currentplayer1Frame % player1MaxFrame) * 2, 2, 2, playerSpriteWidth, playerSpriteHeight);
@@ -800,16 +909,15 @@ void SpaceShipUpdate() {
         }
 
         if (diKeys[DIK_LEFT] & 0x80) {
-            cout << "Left key pressed" << player1Position.z << endl;
 			player1Position.z -= player1RotationSpeed;
         }
         if (diKeys[DIK_RIGHT] & 0x80) {
             player1Position.z += player1RotationSpeed;
         }
-		if (diKeys[DIK_SPACE] & 0x80) {
-			player1Position = D3DXVECTOR3(windowWidth/2, windowHeight/2, 0);
-			player1Velocity = D3DXVECTOR3(0, 0, 0);
-		}
+		//if (diKeys[DIK_SPACE] & 0x80) {
+		//	player1Position = D3DXVECTOR3(windowWidth/2, windowHeight/2, 0);
+		//	player1Velocity = D3DXVECTOR3(0, 0, 0);
+		//}
         player1Velocity = CalculateCollisionVelocity(
             D3DXVECTOR2(player1Position.x, player1Position.y),
             playerSpriteWidth / 4, 
