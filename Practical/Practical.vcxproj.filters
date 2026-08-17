@@ -21,12 +21,18 @@
     <ClCompile Include="FrameTimer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="AudioManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="FrameTimer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -39,15 +45,18 @@
     <Text Include="note.txt" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\..\..\..\..\..\Program Files (x86)\FMOD SoundSystem\FMOD Studio API Windows\api\core\lib\x86\fmod.dll">
+    <None Include="fmod.dll">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="..\..\..\..\..\..\..\Program Files (x86)\FMOD SoundSystem\FMOD Studio API Windows\api\core\lib\x86\fmodL.dll">
+    <None Include="fmodL.dll">
       <Filter>Source Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="..\..\..\..\..\..\..\Program Files (x86)\FMOD SoundSystem\FMOD Studio API Windows\api\core\lib\x86\fmod_vc.lib">
+    <Library Include="fmod_vc.lib">
+      <Filter>Source Files</Filter>
+    </Library>
+    <Library Include="fmodL_vc.lib">
       <Filter>Source Files</Filter>
     </Library>
   </ItemGroup>
