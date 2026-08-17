@@ -38,4 +38,17 @@
   <ItemGroup>
     <Text Include="note.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\..\..\..\..\Program Files (x86)\FMOD SoundSystem\FMOD Studio API Windows\api\core\lib\x86\fmod.dll">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="..\..\..\..\..\..\..\Program Files (x86)\FMOD SoundSystem\FMOD Studio API Windows\api\core\lib\x86\fmodL.dll">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\..\..\..\..\..\Program Files (x86)\FMOD SoundSystem\FMOD Studio API Windows\api\core\lib\x86\fmod_vc.lib">
+      <Filter>Source Files</Filter>
+    </Library>
+  </ItemGroup>
 </Project>
