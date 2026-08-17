@@ -8,6 +8,7 @@
 #include <string>
 #include <dinput.h>
 #include "FrameTimer.h"
+#include "AudioManager.h"
 
 using namespace std;
 
@@ -27,6 +28,10 @@ int framePerSecond = 60;
 float delta_time  = 1.0 / 60.0;
 D3DXVECTOR3 gravity(0, 9.8, 0);
 float time_factor = 10;
+//----------------------------------------------------------------------------
+
+AudioManager* audioManager = new AudioManager();
+
 
 //---------------------------------------------------------------------------
 HWND g_hWnd = NULL;
@@ -196,6 +201,7 @@ public:
 	bool active;
 	bool explode;
 	void Explode() {
+		audioManager->playSound("assets/Audio/explosionCrunch_003.ogg");
 		explode = true;
 		active = false;
 		explosionPosition = D3DXVECTOR3(position.x-51, position.y-51, 0);
@@ -865,17 +871,23 @@ void CleanupSpaceShip() {
 
 void SpaceShipPhysics() {
     if (player1Position.x <= 0 && player1Velocity.x < 0) {
-        player1Velocity.x = 0;
+        player1Velocity.x *= -1;
+		audioManager->sound2pan = -1.0f;
+		audioManager->playSound2();
     }
     if (player1Position.x >= windowWidth- playerSpriteWidth/2 && player1Velocity.x > 0) {
-        player1Velocity.x = 0;
+
+        player1Velocity.x *= -1;
+        audioManager->sound2pan = -1.0f;
+        audioManager->playSound2();
     }
     if (player1Position.y <= 0 && player1Velocity.y < 0) {
-        player1Velocity.y = 0;
+        player1Velocity.y *= -1;
     }
     if (player1Position.y >= windowHeight- playerSpriteHeight/2 && player1Velocity.y > 0) {
-        player1Velocity.y = 0;
+        player1Velocity.y *= -1;
     }
+
 	player1Velocity = addForce(player1EnginePower, player1Mass, player1Direction, player1Velocity);
 	player1Position += player1Velocity;
 }
@@ -1027,6 +1039,7 @@ void InitSprite() {
 int main(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
 
+
 	ShowCursor(true);
     timer.Init(framePerSecond);
 
@@ -1036,7 +1049,10 @@ int main(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nSho
 
     InitDInput();
     dInputKeyboardDevice->Acquire();
-   
+
+    audioManager->initializeAudio();
+    audioManager->loadSounds();
+
     InitSprite();
     InitText();
     //InitMilitia();
@@ -1050,6 +1066,10 @@ int main(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nSho
         SpaceShipPhysics();
         SpaceShipUpdate();
         SpaceShipRender();
+		audioManager->updateSound();
+        if (diKeys[DIK_SPACE] & 0x80) {
+			audioManager->playSound1();
+        }
 
 
 

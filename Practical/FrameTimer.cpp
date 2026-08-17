@@ -13,7 +13,7 @@ int FrameTimer::FramesToUpdate() {
 	int frames_to_update;
 	QueryPerformanceCounter(&timer_now);
 
-	intervalsSinceLastUpdate = (float)timer_now.QuadPart - (float)timer_previous.QuadPart;
+	intervalsSinceLastUpdate = timer_now.QuadPart - timer_previous.QuadPart;
 	frames_to_update = (int)(intervalsSinceLastUpdate / intervals_per_frames);
 	if (frames_to_update != 0)
 		QueryPerformanceCounter(&timer_previous);
