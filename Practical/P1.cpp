@@ -9,6 +9,8 @@
 #include <dinput.h>
 #include "FrameTimer.h"
 #include "AudioManager.h"
+#include "ParallaxImage.cpp"
+#include "Player.cpp"
 
 using namespace std;
 
@@ -84,6 +86,12 @@ RECT explosionRect;
 LPDIRECT3DTEXTURE9 explosionTexture = NULL;
 D3DXVECTOR3 explosionPosition(0, 0, 0);
 int currentFrame = 0;
+//---------------------------------------------
+ParallaxImage imgParallax[4];
+D3DXVECTOR3 cameraOffset(0,0,0);
+float cameraWidth, cameraHeight;
+MovableCharacter playerParallax;
+
 
 //-------------------------------------------------------------------
 RECT backgroundRect;
@@ -1036,6 +1044,79 @@ void InitSprite() {
     //									NULL, NULL, &texture);
 }
 
+void InitParallax() {
+
+
+    cameraHeight = windowHeight;
+    cameraWidth = windowWidth;
+    LPDIRECT3DTEXTURE9 parallaxTexture;
+    RECT rect;
+
+    rect.top = rect.left = 0;
+    rect.bottom = rect.right = 16;
+
+    D3DXCreateTextureFromFile(d3dDevice, 
+        "assets/bullet.png", &parallaxTexture);
+
+    playerParallax =  MovableCharacter(parallaxTexture,
+        rect, 16, 16, 512, 20);
+
+    rect.left = rect.top = 0;
+    rect.right = rect.bottom = 512;
+    string address;
+
+
+    for(int i = 1; i < 5; i++) {
+        address = "assets/industrial/" + to_string(i) + ".png";
+        HRESULT hr = D3DXCreateTextureFromFile(d3dDevice, address.c_str(), &parallaxTexture);
+        if (FAILED(hr)) {
+            cout << "Something went wrong" << endl;
+        }
+        imgParallax[i-1] = ParallaxImage(parallaxTexture, rect, 512, 512);
+        imgParallax[i - 1].distanceFromFG = i;
+    }
+    imgParallax[0].rect.bottom = imgParallax[0].height = 194;
+    imgParallax[1].rect.bottom = imgParallax[1].height = 280;
+    imgParallax[2].rect.bottom = imgParallax[2].height = 280;
+    imgParallax[3].rect.bottom = imgParallax[3].height = 300;
+
+    for (int i = 0; i < 4; i++)
+        imgParallax[i].position.y += (imgParallax[i].width - imgParallax[i].height);    
+
+}
+
+void UpdateParallax() {
+    if (diKeys[DIK_LEFT] & 0x80) {
+        cameraOffset.x -= 5;
+        playerParallax.position.x -= 5;
+    }
+    if (diKeys[DIK_RIGHT] & 0x80) {
+        cameraOffset.x += 5;
+        playerParallax.position.x += 5;
+    }
+    if (diKeys[DIK_UP] & 0x80) {
+        playerParallax.Jump(D3DXVECTOR3(0,-500,0));
+    }
+    playerParallax.Update();
+}
+
+void RenderParallax() {
+    d3dDevice->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 128, 128), 1.0f, 0);
+    //	Begin the scene
+    d3dDevice->BeginScene();
+    sprite->Begin(D3DXSPRITE_ALPHABLEND);
+    for (int i = 3; i >= 0; i--)
+    {
+        imgParallax[i].Draw(sprite, -cameraOffset, cameraWidth, cameraHeight);
+    }
+    playerParallax.Draw(sprite, -cameraOffset);
+    sprite->End();
+    d3dDevice->EndScene();
+    d3dDevice->Present(NULL, NULL, NULL, NULL);
+}
+
+
+
 int main(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
 
@@ -1057,20 +1138,23 @@ int main(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nSho
     InitText();
     //InitMilitia();
     InitSpaceShip();
+
+    InitParallax();
     while (WindowIsRunning()) {
         GetInput();
 
         //MilitiaPhysis();
         //MilitiaUpdate();
         //MilitiaRender();
-        SpaceShipPhysics();
-        SpaceShipUpdate();
-        SpaceShipRender();
-		audioManager->updateSound();
-        if (diKeys[DIK_SPACE] & 0x80) {
-			audioManager->playSound1();
-        }
-
+  //      SpaceShipPhysics();
+  //      SpaceShipUpdate();
+  //      SpaceShipRender();
+		//audioManager->updateSound();
+  //      if (diKeys[DIK_SPACE] & 0x80) {
+		//	audioManager->playSound1();
+  //      }
+        UpdateParallax();
+        RenderParallax();
 
 
 		//Update();

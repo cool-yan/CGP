@@ -149,6 +149,8 @@
     <ClCompile Include="AudioManager.cpp" />
     <ClCompile Include="FrameTimer.cpp" />
     <ClCompile Include="P1.cpp" />
+    <ClCompile Include="ParallaxImage.cpp" />
+    <ClCompile Include="Player.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AudioManager.h" />
